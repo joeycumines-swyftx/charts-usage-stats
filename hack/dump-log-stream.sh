@@ -49,6 +49,14 @@ while getopts ":hc:s:e:g:n:" options; do
     ;;
   esac
 done
+if [ -z "$log_group_name" ]; then
+  echo "Error: -g log_group_name is required" >&2
+  exit 1
+fi
+if [ -z "$log_stream_name" ]; then
+  echo "Error: -n log_stream_name is required" >&2
+  exit 1
+fi
 
 while :; do
   page_number="$((page_number + 1))"
