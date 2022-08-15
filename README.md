@@ -26,6 +26,8 @@ Handy if you want all the logs, for all pods, between redeploy of a k8s deployme
 # you can find this multiple ways, you could use kubectl like:
 #   kubectl --kubeconfig="$HOME"/.kube/dev.yaml -n swy-charts get replicasets
 # or you could just go to cloudwatch, and infer it from the log stream names
+# you can also infer it from datadog, as the replicaset is used as a prefix for
+# pod names
 REPLICA_SET_NAME='api-candle-server-5d8c6985f6'
 
 # optional, can also accept strings like '2018-01-01T00:00:00Z'
