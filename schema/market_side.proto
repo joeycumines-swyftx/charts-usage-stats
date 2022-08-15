@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package charts;
+
+option go_package = "github.com/joeycumines-swyftx/charts-usage-stats/schema";
+
+enum MarketSide {
+  MARKET_SIDE_UNSPECIFIED = 0;
+  ASK = 1;
+  BID = 2;
+}

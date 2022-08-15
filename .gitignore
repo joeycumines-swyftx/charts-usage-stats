@@ -1,1 +1,5 @@
+# optional build config
+/config.mak
+
+# working directory for scripts and such
 /scratch

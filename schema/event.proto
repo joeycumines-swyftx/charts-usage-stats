@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package charts;
+
+import "google/protobuf/timestamp.proto";
+import "schema/api_candle_server.proto";
+
+option go_package = "github.com/joeycumines-swyftx/charts-usage-stats/schema";
+
+message Event {
+  google.protobuf.Timestamp timestamp = 1;
+  oneof data {
+    ApiEvent api = 6;
+  }
+}
