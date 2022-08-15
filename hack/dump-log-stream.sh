@@ -16,6 +16,10 @@ Usage:
   $0 \\
     [-c aws_options] [-s start_time] [-e end_time] \\
     -g log_group_name -n log_stream_name
+
+Description:
+  Dumps events for a log stream, in one json object per line, supporting multiple
+  pages.
 EOF
 }
 while getopts ":hc:s:e:g:n:" options; do
