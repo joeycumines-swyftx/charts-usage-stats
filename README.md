@@ -41,6 +41,7 @@ AWS_CLI_OPTIONS='--profile=dev --region=ap-southeast-2'
 
 # where you want to put the logs, which will be one file per log stream
 OUTPUT_DIR='scratch'
+mkdir -p "$OUTPUT_DIR"
 
 # fail if the lhs of a pipe command fails, handy
 set -o pipefail
