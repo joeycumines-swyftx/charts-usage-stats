@@ -23,6 +23,7 @@ message ApiAccessLog {
 
   oneof data {
     GetBars get_bars = 7;
+    LastKnownPrice last_known_price = 8;
   }
 
   message GetBars {
@@ -32,5 +33,10 @@ message ApiAccessLog {
     google.protobuf.Timestamp start_time = 4;
     google.protobuf.Timestamp end_time = 5;
     google.protobuf.Duration resolution = 6;
+  }
+
+  message LastKnownPrice {
+    string primary_asset = 1;
+    string secondary_asset = 2;
   }
 }
