@@ -4,19 +4,12 @@ import (
 	"bufio"
 	"encoding/csv"
 	"github.com/cyx/streampb"
-	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/joeycumines-swyftx/charts-usage-stats/internal/csvfmt"
 	"github.com/joeycumines-swyftx/charts-usage-stats/schema"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"io"
 	"log"
-	"math/big"
 	"os"
-	"strconv"
 	"time"
-)
-
-const (
-	timeFormat = time.RFC3339Nano
 )
 
 func main() {
@@ -61,16 +54,16 @@ func parse(dst io.Writer, src io.Reader) error {
 		}
 
 		if err := enc.Write([]string{
-			formatTimestamp(event.GetTimestamp()),
-			formatInt(int64(event.GetApi().GetAccessLog().GetStatusCode()), 10),
-			formatInt(event.GetApi().GetAccessLog().GetContentLength(), 10),
-			formatDurationRat(event.GetApi().GetAccessLog().GetDuration(), time.Millisecond, 3),
+			csvfmt.FormatTimestamp(event.GetTimestamp()),
+			csvfmt.FormatInt(int64(event.GetApi().GetAccessLog().GetStatusCode()), 10),
+			csvfmt.FormatInt(event.GetApi().GetAccessLog().GetContentLength(), 10),
+			csvfmt.FormatDurationRat(event.GetApi().GetAccessLog().GetDuration(), time.Millisecond, 3),
 			event.GetApi().GetAccessLog().GetGetBars().GetPrimaryAsset(),
 			event.GetApi().GetAccessLog().GetGetBars().GetSecondaryAsset(),
-			formatMarketSide(event.GetApi().GetAccessLog().GetGetBars().GetMarketSide()),
-			formatTimestamp(event.GetApi().GetAccessLog().GetGetBars().GetStartTime()),
-			formatTimestamp(event.GetApi().GetAccessLog().GetGetBars().GetEndTime()),
-			formatDurationFloat(event.GetApi().GetAccessLog().GetGetBars().GetResolution(), time.Minute, -1),
+			csvfmt.FormatMarketSide(event.GetApi().GetAccessLog().GetGetBars().GetMarketSide()),
+			csvfmt.FormatTimestamp(event.GetApi().GetAccessLog().GetGetBars().GetStartTime()),
+			csvfmt.FormatTimestamp(event.GetApi().GetAccessLog().GetGetBars().GetEndTime()),
+			csvfmt.FormatDurationFloat(event.GetApi().GetAccessLog().GetGetBars().GetResolution(), time.Minute, -1),
 		}); err != nil {
 			return err
 		}
@@ -78,49 +71,4 @@ func parse(dst io.Writer, src io.Reader) error {
 
 	enc.Flush()
 	return enc.Error()
-}
-
-func formatInt(value int64, base int) string {
-	if value == 0 {
-		return ``
-	}
-	return strconv.FormatInt(value, base)
-}
-
-func formatTimestamp(t *timestamp.Timestamp) string {
-	if t == nil {
-		return ``
-	}
-	return t.AsTime().Format(timeFormat)
-}
-
-func formatMarketSide(side schema.MarketSide) string {
-	switch side {
-	case schema.MarketSide_BID:
-		return "bid"
-	case schema.MarketSide_ASK:
-		return "ask"
-	default:
-		return ""
-	}
-}
-
-func formatDurationRat(d *durationpb.Duration, u time.Duration, prec int) string {
-	if d == nil {
-		return ``
-	}
-	return big.NewRat(
-		int64(d.AsDuration()),
-		int64(u),
-	).FloatString(prec)
-}
-
-func formatDurationFloat(d *durationpb.Duration, u time.Duration, prec int) string {
-	if d == nil {
-		return ``
-	}
-	return new(big.Float).SetRat(big.NewRat(
-		int64(d.AsDuration()),
-		int64(u),
-	)).Text('f', prec)
 }
