@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	github.com/cyx/streampb v0.0.1
+	github.com/erkkah/margaid v0.0.3-0.20211005182513-eb34531e6c92
 	golang.org/x/tools v0.1.12
 	google.golang.org/protobuf v1.28.1
 	honnef.co/go/tools v0.3.3
