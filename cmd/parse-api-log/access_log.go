@@ -80,6 +80,13 @@ func parseAccessLog(event *cloudwatch.LogEvent) (*schema.Event, error) {
 			return nil, err
 		}
 
+		if v, err := parseLastKnownPriceURL(match[urlIndex]); err == nil {
+			data.Data = &schema.ApiAccessLog_LastKnownPrice_{LastKnownPrice: v}
+			break
+		} else if !errors.Is(err, errUnhandledEvent) {
+			return nil, err
+		}
+
 		fallthrough
 
 	default:
