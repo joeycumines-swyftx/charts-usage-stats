@@ -87,6 +87,13 @@ func parseAccessLog(event *cloudwatch.LogEvent) (*schema.Event, error) {
 			return nil, err
 		}
 
+		if v, err := parseRateURL(match[urlIndex]); err == nil {
+			data.Data = &schema.ApiAccessLog_Rate_{Rate: v}
+			break
+		} else if !errors.Is(err, errUnhandledEvent) {
+			return nil, err
+		}
+
 		fallthrough
 
 	default:
