@@ -9,6 +9,7 @@ import (
 	"github.com/joeycumines-swyftx/charts-usage-stats/schema"
 	"io"
 	"log"
+	"math"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -32,6 +33,13 @@ type (
 		Reader    io.Reader
 		OutputDir string
 		Scale     *big.Rat
+		// GetBarResolutions must be in ascending order, and must be non-empty
+		GetBarResolutions []GetBarResolution
+	}
+
+	GetBarResolution struct {
+		String   string
+		Duration time.Duration
 	}
 
 	eventHandler interface {
@@ -66,6 +74,13 @@ func configure() (*Config, error) {
 		// assume 1 day period if scale is 1
 		// bigger scale == bigger period (for aggregations)
 		Scale: big.NewRat(1, 1),
+		GetBarResolutions: []GetBarResolution{
+			{`1m`, time.Minute},
+			{`5m`, time.Minute * 5},
+			{`1h`, time.Hour},
+			{`4h`, time.Hour * 4},
+			{`1d`, time.Hour * 24},
+		},
 	}
 	{
 		wd, err := os.Getwd()
@@ -115,7 +130,8 @@ func (x *Config) eventHandlers() (handlers []eventHandler, _ error) {
 	for _, factory := range [...]func() (eventHandler, error){
 		x.avgRequestDuration,
 		x.avgContentLength,
-		x.numStatusCodes,
+		x.sumStatusCodes,
+		x.sumGetBarResolutions,
 	} {
 		handler, err := factory()
 		if err != nil {
@@ -221,14 +237,7 @@ func (x *Config) avgRequestDuration() (eventHandler, error) {
 		Series:   []*margaid.Series{rate},
 	})
 
-	starts := make(map[*margaid.Series]time.Time)
-	addValue := func(series *margaid.Series, t time.Time, value float64) {
-		if starts[series] == (time.Time{}) {
-			starts[series] = t
-		}
-		// WARNING: the aggregators depend on the X axis being in seconds
-		series.Add(margaid.MakeValue(t.Sub(starts[series]).Seconds(), value))
-	}
+	addValue := timeOffsetAdder()
 
 	var h eventHandlerFuncs
 	h.handle = func(event *schema.Event) error {
@@ -351,14 +360,7 @@ func (x *Config) avgContentLength() (eventHandler, error) {
 		Series:   []*margaid.Series{rate},
 	})
 
-	starts := make(map[*margaid.Series]time.Time)
-	addValue := func(series *margaid.Series, t time.Time, value float64) {
-		if starts[series] == (time.Time{}) {
-			starts[series] = t
-		}
-		// WARNING: the aggregators depend on the X axis being in seconds
-		series.Add(margaid.MakeValue(t.Sub(starts[series]).Seconds(), value))
-	}
+	addValue := timeOffsetAdder()
 
 	var h eventHandlerFuncs
 	h.handle = func(event *schema.Event) error {
@@ -386,7 +388,7 @@ func (x *Config) avgContentLength() (eventHandler, error) {
 	return &h, nil
 }
 
-func (x *Config) numStatusCodes() (eventHandler, error) {
+func (x *Config) sumStatusCodes() (eventHandler, error) {
 	period, err := x.scaleDuration(time.Hour)
 	if err != nil {
 		return nil, err
@@ -424,8 +426,8 @@ func (x *Config) numStatusCodes() (eventHandler, error) {
 	addChart := func(cfg Config) {
 		charts = append(charts, func() error {
 			const (
-				diagramTitle    = `Num Status Codes`
-				diagramFilename = `num-status-codes`
+				diagramTitle    = `Sum Status Codes`
+				diagramFilename = `sum-status-codes`
 				xAxisTitle      = `Time (seconds)`
 				yAxisTitle      = `Count (requests)`
 			)
@@ -494,14 +496,7 @@ func (x *Config) numStatusCodes() (eventHandler, error) {
 		Series:   []*StatusCodes{rate},
 	})
 
-	starts := make(map[*margaid.Series]time.Time)
-	addValue := func(series *margaid.Series, t time.Time, value float64) {
-		if starts[series] == (time.Time{}) {
-			starts[series] = t
-		}
-		// WARNING: the aggregators depend on the X axis being in seconds
-		series.Add(margaid.MakeValue(t.Sub(starts[series]).Seconds(), value))
-	}
+	addValue := timeOffsetAdder()
 
 	var h eventHandlerFuncs
 	h.handle = func(event *schema.Event) error {
@@ -527,6 +522,148 @@ func (x *Config) numStatusCodes() (eventHandler, error) {
 			return nil
 		}
 		addValue(selectSeries(target), event.GetTimestamp().AsTime(), 1)
+		return nil
+	}
+	h.flush = func() error { return callFuncs(charts) }
+	return &h, nil
+}
+
+func (x *Config) sumGetBarResolutions() (eventHandler, error) {
+	if len(x.GetBarResolutions) == 0 {
+		return nil, errors.New(`get bar resolutions is empty`)
+	}
+
+	period, err := x.scaleDuration(time.Hour)
+	if err != nil {
+		return nil, err
+	}
+
+	// indexes 1-1 with the x.GetBarResolutions
+	type Group []*margaid.Series
+	newGroup := func(name string) (group Group) {
+		agg := margaid.AggregatedBy(margaid.Sum, period)
+		for _, v := range x.GetBarResolutions {
+			group = append(group, margaid.NewSeries(
+				agg,
+				margaid.Titled(name+`-`+v.String),
+			))
+		}
+		return
+	}
+	groupAll := newGroup(`all`)
+	groupSuccess := newGroup(`success`)
+	groupFailure := newGroup(`failure`)
+
+	var charts []func() error
+	type Config struct {
+		Title    string
+		Filename string
+		Range    Group
+		Series   []Group
+	}
+	addChart := func(cfg Config) {
+		charts = append(charts, func() error {
+			const (
+				diagramTitle    = `Sum getBar Resolutions`
+				diagramFilename = `sum-get-bar-resolutions`
+				xAxisTitle      = `Time (seconds)`
+				yAxisTitle      = `Count (requests)`
+			)
+
+			var rnge *margaid.Series
+			if cfg.Range != nil {
+				rnge = mergeSeriesMinMax(cfg.Range...)
+			} else {
+				var series []*margaid.Series
+				for _, group := range cfg.Series {
+					series = append(series, group...)
+				}
+				rnge = mergeSeriesMinMax(series...)
+			}
+
+			diagram := margaid.New(
+				diagramWidth,
+				calculateHeight(diagramWidth),
+				margaid.WithAutorange(margaid.XAxis, rnge),
+				margaid.WithAutorange(margaid.YAxis, rnge),
+				margaid.WithColorScheme(colourScheme),
+				margaid.WithInset(diagramInset),
+				margaid.WithPadding(diagramPadding),
+			)
+			for _, group := range cfg.Series {
+				diagram.Bar(
+					group,
+					margaid.UsingAxes(margaid.XAxis, margaid.YAxis),
+				)
+			}
+			diagram.Axis(rnge, margaid.XAxis, diagram.ValueTicker('f', 0, 10), false, xAxisTitle)
+			diagram.Axis(rnge, margaid.YAxis, diagram.ValueTicker('f', 0, 2), true, yAxisTitle)
+			diagram.Title(fmt.Sprintf(`%s (%s) - %s`, diagramTitle, period, cfg.Title))
+			diagram.Legend(margaid.BottomLeft)
+
+			return x.writeOutputFile(fmt.Sprintf(`%s-%s.svg`, diagramFilename, cfg.Filename), func(w io.Writer) error {
+				buf := bufio.NewWriter(w)
+				if err := diagram.Render(buf); err != nil {
+					return err
+				}
+				return buf.Flush()
+			})
+		})
+	}
+	addChart(Config{
+		Title:    `all`,
+		Filename: `all`,
+		Range:    groupAll,
+		Series:   []Group{groupAll},
+	})
+	addChart(Config{
+		Title:    `success`,
+		Filename: `success`,
+		Range:    groupSuccess,
+		Series:   []Group{groupSuccess},
+	})
+	addChart(Config{
+		Title:    `failure`,
+		Filename: `failure`,
+		Range:    groupFailure,
+		Series:   []Group{groupFailure},
+	})
+
+	addValue := timeOffsetAdder()
+
+	var h eventHandlerFuncs
+	h.handle = func(event *schema.Event) error {
+		al := event.GetApi().GetAccessLog()
+		if al.GetGetBars() == nil {
+			// we're only graphing getBars
+			return nil
+		}
+
+		// identify the matching resolution
+		index := -1
+		for i, v := range x.GetBarResolutions {
+			if math.Round(v.Duration.Minutes()) == math.Round(al.GetGetBars().GetResolution().AsDuration().Minutes()) {
+				index = i
+				break
+			}
+		}
+		if index == -1 {
+			index = 0
+		}
+
+		t := event.GetTimestamp().AsTime()
+		c := event.GetApi().GetAccessLog().GetStatusCode()
+
+		addValue(groupAll[index], t, 1)
+
+		switch {
+		case c >= 200 && c < 300:
+			addValue(groupSuccess[index], t, 1)
+
+		case c >= 500 && c < 600:
+			addValue(groupFailure[index], t, 1)
+		}
+
 		return nil
 	}
 	h.flush = func() error { return callFuncs(charts) }
@@ -664,4 +801,15 @@ func mergeSeriesMinMax(series ...*margaid.Series) *margaid.Series {
 		r.Add(margaid.MakeValue(maxX, minY))
 	}
 	return r
+}
+
+func timeOffsetAdder() func(series *margaid.Series, t time.Time, value float64) {
+	starts := make(map[*margaid.Series]time.Time)
+	return func(series *margaid.Series, t time.Time, value float64) {
+		if starts[series] == (time.Time{}) {
+			starts[series] = t
+		}
+		// WARNING: the aggregators depend on the X axis being in seconds
+		series.Add(margaid.MakeValue(t.Sub(starts[series]).Seconds(), value))
+	}
 }
