@@ -1,9 +1,9 @@
 package csvfmt
 
 import (
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/joeycumines-swyftx/charts-usage-stats/schema"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"math/big"
 	"strconv"
 	"time"
@@ -20,7 +20,7 @@ func FormatInt(value int64, base int) string {
 	return strconv.FormatInt(value, base)
 }
 
-func FormatTimestamp(t *timestamp.Timestamp) string {
+func FormatTimestamp(t *timestamppb.Timestamp) string {
 	if t == nil {
 		return ``
 	}

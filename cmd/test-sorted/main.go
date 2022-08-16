@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"github.com/cyx/streampb"
+	"github.com/joeycumines-swyftx/charts-usage-stats/internal/msgutil"
 	"github.com/joeycumines-swyftx/charts-usage-stats/schema"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"io"
@@ -33,7 +34,7 @@ func parse(src io.Reader) (bool, error) {
 			return false, err
 		}
 
-		if less(event.GetTimestamp(), last) {
+		if msgutil.TimestampLess(event.GetTimestamp(), last) {
 			return false, nil
 		}
 
@@ -41,14 +42,4 @@ func parse(src io.Reader) (bool, error) {
 	}
 
 	return true, nil
-}
-
-func less(a, b *timestamppb.Timestamp) bool {
-	if b == nil {
-		return false
-	}
-	if a == nil {
-		return true
-	}
-	return a.AsTime().Before(b.AsTime())
 }

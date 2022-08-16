@@ -1,4 +1,4 @@
-package main
+package msgutil
 
 import (
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func Test_less(t *testing.T) {
+func TestTimestampLess(t *testing.T) {
 	n := func(v *int64) *timestamppb.Timestamp {
 		if v == nil {
 			return nil
@@ -76,7 +76,7 @@ func Test_less(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			got := less(n(tc.A), n(tc.B))
+			got := TimestampLess(n(tc.A), n(tc.B))
 			if got != tc.Want {
 				t.Error(got)
 			}
