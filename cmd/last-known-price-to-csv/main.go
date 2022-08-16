@@ -9,7 +9,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"time"
 )
 
 func main() {
@@ -32,10 +31,6 @@ func parse(dst io.Writer, src io.Reader) error {
 		record,
 		"primary_asset",
 		"secondary_asset",
-		"market_side",
-		"start_time",
-		"end_time",
-		"resolution",
 	)
 	if err := enc.Write(record); err != nil {
 		return err
@@ -50,7 +45,7 @@ func parse(dst io.Writer, src io.Reader) error {
 			return err
 		}
 
-		msg := event.GetApi().GetAccessLog().GetGetBars()
+		msg := event.GetApi().GetAccessLog().GetLastKnownPrice()
 		if msg == nil {
 			continue
 		}
@@ -62,10 +57,6 @@ func parse(dst io.Writer, src io.Reader) error {
 			record,
 			msg.GetPrimaryAsset(),
 			msg.GetSecondaryAsset(),
-			csvfmt.FormatMarketSide(msg.GetMarketSide()),
-			csvfmt.FormatTimestamp(msg.GetStartTime()),
-			csvfmt.FormatTimestamp(msg.GetEndTime()),
-			csvfmt.FormatDurationFloat(msg.GetResolution(), time.Minute, -1),
 		)
 		if err := enc.Write(record); err != nil {
 			return err

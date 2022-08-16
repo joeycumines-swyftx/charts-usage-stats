@@ -57,3 +57,27 @@ func FormatDurationFloat(d *durationpb.Duration, u time.Duration, prec int) stri
 		int64(u),
 	)).Text('f', prec)
 }
+
+var EventHeader = []string{
+	"timestamp",
+}
+
+func FormatEvent(msg *schema.Event) []string {
+	return []string{
+		FormatTimestamp(msg.GetTimestamp()),
+	}
+}
+
+var APIAccessLogHeader = []string{
+	"status_code",
+	"content_length",
+	"duration",
+}
+
+func FormatAPIAccessLog(msg *schema.ApiAccessLog) []string {
+	return []string{
+		FormatInt(int64(msg.GetStatusCode()), 10),
+		FormatInt(msg.GetContentLength(), 10),
+		FormatDurationRat(msg.GetDuration(), time.Millisecond, 3),
+	}
+}
