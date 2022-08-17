@@ -22,6 +22,21 @@ as part of setting up your AWS CLI access.
 
 Handy if you want all the logs, for all pods, between redeploy of a k8s deployment.
 
+#### Using hack/archive-log-streams.sh
+
+**Note:** See the `Manual invocation` section below for an explanation of the options.
+
+```bash
+AWS_CLI_OPTIONS='--profile=dev --region=ap-southeast-2' \
+  LOG_GROUP_NAME=/aws/containerinsights/development-cluster/application \
+  REPLICA_SET_NAME=api-candle-server-5d8c6985f6 \
+  START_TIME=1660609113906 \
+  END_TIME=1660695513906 \
+  hack/archive-log-streams.sh
+```
+
+#### Manual invocation
+
 ```bash
 # you can find this multiple ways, you could use kubectl like:
 #   kubectl --kubeconfig="$HOME"/.kube/dev.yaml -n swy-charts get replicasets
