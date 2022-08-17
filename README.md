@@ -9,6 +9,7 @@ Utils as part of manually extracting usage statistics from charts.
 - `bash` note that you may need a more recent version than comes with MacOS
 - `jq` command line JSON tool
 - `aws` specifically AWS CLI v2
+- `go` for the commands in [cmd](./cmd), see [go.mod](./go.mod) for the min version
 
 ### Setup
 
