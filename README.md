@@ -18,6 +18,54 @@ as part of setting up your AWS CLI access.
 
 ## Usage
 
+### Generate all outputs
+
+This demonstrates running all commands against a set of log streams, matching
+`*.jsonl` files, in the current working directory.
+
+```bash
+# parse each of the log streams
+(
+  set -xo pipefail
+  for f in *.jsonl; do
+    f="$(basename "$f" .jsonl)" &&
+      go run github.com/joeycumines-swyftx/charts-usage-stats/cmd/parse-api-log <"${f}.jsonl" >"${f}.api-log.bin" ||
+      exit "$?"
+  done
+)
+
+# merge all events into output.bin
+rm -f output.bin &&
+  go run github.com/joeycumines-swyftx/charts-usage-stats/cmd/merge-events *.bin >output.bin
+
+# validate that all the *.bin files were sorted
+find . -mindepth 1 -maxdepth 1 -name '*.bin' -exec bash -c '
+ec=0
+for f in "$@"; do
+  if ! go run github.com/joeycumines-swyftx/charts-usage-stats/cmd/test-sorted <"$f"; then
+    echo "Error: $f is not sorted" >&2
+    ec=1
+  fi
+done
+exit "$ec"
+' - {} +
+
+# generate outputs from all *.bin files
+(
+  set -xo pipefail
+  for f in *.bin; do
+    f="$(basename "$f" .bin)" &&
+      go run github.com/joeycumines-swyftx/charts-usage-stats/cmd/get-bars-to-csv <"${f}.bin" >"${f}.get-bars.csv" &&
+      go run github.com/joeycumines-swyftx/charts-usage-stats/cmd/last-known-price-to-csv <"${f}.bin" >"${f}.last-known-price.csv" &&
+      go run github.com/joeycumines-swyftx/charts-usage-stats/cmd/rate-to-csv <"${f}.bin" >"${f}.rate.csv" &&
+      rm -rf "$f" &&
+      mkdir "$f" &&
+      (cd "$f" && go run github.com/joeycumines-swyftx/charts-usage-stats/cmd/process-events) <"${f}.bin" ||
+      exit "$?"
+  done
+)
+```
+
 ### Dump all the logs for a replica set
 
 Handy if you want all the logs, for all pods, between redeploy of a k8s deployment.
